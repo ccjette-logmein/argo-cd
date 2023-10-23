@@ -1185,18 +1185,7 @@ func (ctrl *ApplicationController) processRequestedAppOperation(app *appv1.Appli
 	if isOperationInProgress(app) {
 		state = app.Status.OperationState.DeepCopy()
 		terminating = state.Phase == synccommon.OperationTerminating
-		// Cannot use project
-		proj, err := ctrl.getAppProj(app)
-		if err != nil {
-			state.Phase = synccommon.OperationError
-			state.Message = err.Error()
-			ctrl.setOperationState(app, state)
-			return
-		} else if syncWindowPreventsSync(app, proj) {
-			state.Phase = synccommon.OperationFailed
-			state.Message = "Sync operation prevented by sync window"
-			logCtx.Info("Sync operation prevented by sync window")
-		} else if state.FinishedAt != nil && !terminating {
+		if state.FinishedAt != nil && !terminating {
 			retryAt, err := app.Status.OperationState.Operation.Retry.NextRetryAt(state.FinishedAt.Time, state.RetryCount)
 			if err != nil {
 				state.Phase = synccommon.OperationFailed
