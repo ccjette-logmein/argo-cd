@@ -1235,13 +1235,9 @@ func (ctrl *ApplicationController) processRequestedAppOperation(app *appv1.Appli
 	}
 
 	// Check whether application is allowed to use project and if a sync window is currently denying sync
-	if proj, err := ctrl.getAppProj(app); err != nil {
+	if _, err := ctrl.getAppProj(app); err != nil {
 		state.Phase = synccommon.OperationError
 		state.Message = err.Error()
-	} else if syncWindowPreventsSync(app, proj) {
-		logCtx.Info("Sync operation prevented by Sync Window")
-		state.Phase = synccommon.OperationFailed
-		state.Message = "Sync operation is currently blocked by a deny sync window"
 	}
 
 	if state.Phase == synccommon.OperationRunning {
@@ -1292,12 +1288,6 @@ func (ctrl *ApplicationController) processRequestedAppOperation(app *appv1.Appli
 			logCtx.Warnf("Fails to requeue application: %v", err)
 		}
 	}
-}
-
-func syncWindowPreventsSync(app *appv1.Application, proj *appv1.AppProject) bool {
-	window := proj.Spec.SyncWindows.Matches(app)
-	isManual := !app.Status.OperationState.Operation.InitiatedBy.Automated
-	return !window.CanSync(isManual)
 }
 
 func (ctrl *ApplicationController) setOperationState(app *appv1.Application, state *appv1.OperationState) {
@@ -2097,14 +2087,6 @@ func (ctrl *ApplicationController) RegisterClusterSecretUpdater(ctx context.Cont
 
 func isOperationInProgress(app *appv1.Application) bool {
 	return app.Status.OperationState != nil && !app.Status.OperationState.Phase.Completed()
-}
-
-func isOperationManual(app *appv1.Application) bool {
-	if app.Status.OperationState != nil {
-		return app.Status.OperationState.Operation.InitiatedBy.Automated
-	}
-	// Assume automated when not specified, as the UI and CLI should populate this
-	return false
 }
 
 // automatedSyncEnabled tests if an app went from auto-sync disabled to enabled.
